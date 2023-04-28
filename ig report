@@ -1,0 +1,464 @@
+@@ -0,0 +1,136 @@
+# coding=utf-8
+#!/usr/bin/env python3
+
+""" 
+Before changing the program and publishing it somewhere, please
+Please note that this program is under GPLv3 license.
+More information:
+https://tr.wikipedia.org/wiki/gnu_genel_kamu_lisans%c4%b1
+https://www.gnu.org/licenses/quick-guide-gplv3.html
+"""
+
+__author__ = "Arjun"
+__license__ = "GPLv3"
+__version__ = "2.0"
+__status__ = "being developed"
+
+
+
+from time import time, sleep
+from random import choice
+from multiprocessing import Process
+
+from libs.utils import CheckPublicIP, IsProxyWorking
+from libs.utils import PrintStatus, PrintSuccess, PrintError
+from libs.utils import PrintBanner, GetInput, PrintFatalError
+from libs.utils import LoadUsers, LoadProxies, PrintChoices
+
+from libs.instaclient import InstaClient
+
+USERS = []
+PROXIES = []
+
+def MultiThread(username, userid, loginuser, loginpass, proxy, reasonid):
+    client = None
+    if (proxy != None):
+        PrintStatus("[" + loginuser + "]", "Logging into the Account!")
+        client = InstaClient(
+            loginuser,
+            loginpass,
+            proxy["ip"],
+            proxy["port"]
+        )
+    else:
+        PrintStatus("[" + loginuser + "]", "Logging into the Account!")
+        client = InstaClient(
+            loginuser,
+            loginpass,
+            None,
+            None
+        )
+
+    client.Connect()
+    client.Login()
+    client.Spam(userid, username, reasonid)
+    print("")
+
+def NoMultiThread():
+    for user in USERS:
+        client = None
+        if (useproxy):
+            proxy = choice(PROXIES)
+            PrintStatus("[" + user["user"] + "]", "Logging into the Account!")
+            client = InstaClient(
+                user["user"],
+                user["password"],
+                proxy["ip"],
+                proxy["port"]
+            )
+        else:
+            proxy = choice(PROXIES)
+            PrintStatus("[" + user["user"] + "]", "Logging into the Account!")
+            client = InstaClient(
+                user["user"],
+                user["password"],
+                None,
+                None
+            )
+
+        client.Connect()
+        client.Login()
+        client.Spam(userid, username, reasonid)
+        print("")
+
+
+if __name__ == "__main__":
+    PrintBanner()
+    PrintStatus("Loading users!")
+    USERS = LoadUsers("./users.txt")
+    PrintStatus("Loading Proxes!")
+    PROXIES = LoadProxies("./proxy.txt")
+    print("")
+
+    username = GetInput("Account username you want to complain about:")
+    userid = GetInput("Account number you want to complain about:")
+    useproxy = GetInput("Do you want to use proxy? [Yes No]:")
+    if (useproxy == "Yes"):
+        useproxy = True
+    elif (useproxy == "No"):
+        useproxy = False
+    else:
+        PrintFatalError("Please just enter 'Yes' or 'No'!")
+        exit(0)
+    usemultithread = GetInput("Do you want to use multithreading? [Yes / No] (Do not use this feature if you have too many users or if your computer is slow!):")
+
+    if (usemultithread == "Yes"):
+        usemultithread = True
+    elif (usemultithread == "No"):
+        usemultithread = False
+    else:
+        PrintFatalError("Please just enter 'Yes' or 'No'!")
+        exit(0)
+
+    PrintChoices()
+    reasonid = GetInput("Please select one of the reasons for the above complaint (ex: 1 for spam):")
+
+
+
+
+    print("")
+    PrintStatus("Starting...")
+    print("")
+
+    if (usemultithread == False):
+        NoMultiThread()
+    else:
+        for user in USERS:
+            p = Process(target=MultiThread,
+                args=(username,
+                    userid,
+                    user["user"],
+                    user["password"],
+                    None if useproxy == False else choice(PROXIES),
+                    reasonid
+                )
+            )
+            p.start() 
+            
+            @@ -0,0 +1,172 @@
+from requests import Session
+from random import choice
+
+from libs.utils import CheckPublicIP, IsProxyWorking
+from libs.utils import PrintStatus, PrintSuccess, PrintError
+
+USER_AGENTS = ["Mozilla/5.0 (Android 4.4; Mobile; rv:41.0) Gecko/41.0 Firefox/41.0",
+"Mozilla/5.0 (Android 4.4; Tablet; rv:41.0) Gecko/41.0 Firefox/41.0",
+"Mozilla/5.0 (Windows NT x.y; rv:10.0) Gecko/20100101 Firefox/10.0",
+"Mozilla/5.0 (X11; Linux i686; rv:10.0) Gecko/20100101 Firefox/10.0",
+"Mozilla/5.0 (X11; Linux x86_64; rv:10.0) Gecko/20100101 Firefox/10.0",
+"Mozilla/5.0 (Android 4.4; Mobile; rv:41.0) Gecko/41.0 Firefox/41.0"]
+
+class InstaClient:
+    def __init__(self, user, password, ip, port):
+        self.isproxyok = True
+        self.ip = ip
+        self.port = port
+        self.user = user
+        self.password = password
+        self.user_agent = choice(USER_AGENTS)
+
+        self.rur = None
+        self.mid = None
+        self.csrftoken = None
+
+        self.ses = Session()
+
+        if (self.ip != None and self.port != None):
+            self.isproxyok = IsProxyWorking({
+                "http": "http://" + self.ip + ":" + self.port,
+                "https": "https://" + self.ip + ":" + self.port
+            })
+
+            self.ses.proxies.update({
+                "http": "http://" + self.ip + ":" + self.port,
+                "https": "https://" + self.ip + ":" + self.port
+            })
+
+        pass
+
+    def SetDefaultHeaders(self, referer):
+        if (referer != None):
+            self.ses.headers.update({
+                "Referer": referer
+            })
+        self.ses.headers.update({
+            "Accept": "*/*",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Accept-Language": "en-US;q=0.5,en;q=0.3",
+            "Connection": "keep-alive",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "DNT": "1",
+            "Host": "www.instagram.com",
+            "TE": "Trailers",
+            "User-Agent": self.user_agent,
+            "X-CSRFToken": self.csrftoken,
+            "X-IG-App-ID": "1",
+            "X-Instagram-AJAX": "1",
+            "X-Requested-With": "XMLHttpRequest",
+            "Pragma": "no-cache",
+            "Cache-Control": "no-cache"
+        })
+
+    def IsCookiesOK(self):
+        if (self.rur == None):
+            return False
+        if (self.mid == None):
+            return False
+        if (self.csrftoken == None):
+            return False
+
+        return True
+
+    def GetAndUpdate(self, url):
+        res = self.ses.get(url)
+        if (res.status_code == 200):
+            self.ses.cookies.update(res.cookies)
+            if "rur" in res.cookies.get_dict():
+                self.rur = res.cookies.get_dict()["rur"]
+            if "mid" in res.cookies.get_dict():
+                self.mid = res.cookies.get_dict()["mid"]
+            if "csrftoken" in res.cookies.get_dict():
+                self.csrftoken = res.cookies.get_dict()["csrftoken"]
+        return res
+
+    def PostAndUpdate(self, url, data):
+        res = self.ses.post(url, data=data)
+        if (res.status_code == 200):
+            self.ses.cookies.update(res.cookies)
+            if "rur" in res.cookies.get_dict():
+                self.rur = res.cookies.get_dict()["rur"]
+            if "mid" in res.cookies.get_dict():
+                self.mid = res.cookies.get_dict()["mid"]
+            if "csrftoken" in res.cookies.get_dict():
+                self.csrftoken = res.cookies.get_dict()["csrftoken"]
+        return res
+
+    def Connect(self):
+        if (self.isproxyok != True):
+            PrintError("Proxy does not work! (Proxy:", self.user, self.ip, ":" ,self.port, ")")
+            return
+
+        if (self.ip != None and self.port != None):
+            PrintSuccess("Proxy working! (Proxy:", self.user ,self.ip, ":" ,self.port, ")")
+        self.GetAndUpdate("https://www.instagram.com/accounts/login/")
+        if (self.IsCookiesOK() != True):
+            PrintError("Cookies could not be received! Try another proxy! (Proxy:", self.user, self.ip, ":", self.port, ")")
+            self.isproxyok = False
+            return
+        pass
+
+    def Login(self):
+        if (self.isproxyok != True):
+            return
+
+        self.SetDefaultHeaders("https://www.instagram.com/accounts/login/")
+        res = self.PostAndUpdate("https://www.instagram.com/accounts/login/ajax/",{
+            "username": self.user,
+            "password": self.password,
+            "queryParams": "{}",
+            "optIntoOneTap": "false"
+        })
+
+        if (res.status_code == 200):
+            try:
+                obj = res.json()
+                if ("message" in obj and obj["message"] == "checkpoint_required"):
+                    PrintError("Requires account verification! (URL:", obj["checkpoint_url"], ")")
+                    self.isproxyok = False
+                    return
+                if ("authenticated" in obj and obj["authenticated"] == True and
+                "user" in obj and obj["user"] == True):
+                    PrintSuccess("Login successful!", self.user)
+                    self.isproxyok = True
+                    return
+                if ("errors" in obj and "error" in obj["errors"]):
+                    PrintError("Login failed! Proxy may not be working. (Proxy:", self.user, self.ip, ":", self.port, ")")
+                    self.isproxyok = False
+                    return
+                self.isproxyok = False
+            except:
+                PrintError("Login failed!", self.user)
+
+        pass
+
+    def Spam(self,userid, username, reasonid):
+        if (self.isproxyok != True):
+            return
+
+        profileURL = "https://www.instagram.com/" + username + "/"
+        reportURL = "https://www.instagram.com/users/" + userid + "/report/"
+
+        self.SetDefaultHeaders(profileURL)
+        self.GetAndUpdate(profileURL)
+
+        res = self.PostAndUpdate(reportURL, {
+            "source_name": "profile",
+            "reason": reasonid 
+        })
+
+        try:
+            obj = res.json()
+            if ("description" in obj and "status" in obj):
+                if (obj["status"] == "ok" and obj["description"] == "Your reports help keep our community free of spam."):
+                    PrintSuccess("Complaint was successfully sent by InstaReporter2.0!", self.user)
+                    return
+            PrintError("Our request to submit a complaint was rejected!", self.user)
+        except:
+            PrintError("An error occurred while submitting a complaint!", self.user)
+
+        pass
+        @@ -0,0 +1,155 @@
+from requests import Session
+
+def CheckPublicIP():
+    try:
+        with Session() as ses:
+            res = ses.get("https://api.ipify.org/?format=json")
+            if (res.status_code == 200):
+                return res.json()["ip"]
+            return None
+    except:
+        return None
+    pass
+
+def IsProxyWorking(proxy):
+    try:
+        with Session() as ses:
+            ses.proxies.update(proxy)
+            res = ses.get("https://api.ipify.org/?format=json")
+            if (res.status_code == 200):
+                if(res.json()["ip"] != CheckPublicIP() and CheckPublicIP != None):
+                    return True
+            return False
+    except:
+        return False
+    pass
+
+def PrintSuccess(message, username, *argv):
+    print("[ OK ] ", end="")
+    print("[", end="")
+    print(username, end="")
+    print("] ", end="")
+    print(message, end=" ")
+    for arg in argv:
+        print(arg, end=" ")
+    print("")
+    pass
+
+# Spam 1
+# Do not hurt yourself 2
+# Drug 3
+# Nudity 4
+# Severity 5
+# Hate Speech 6
+# Harassment and Bullying 7
+# Identity Imitation 8
+# Age-Free Child 11
+
+def PrintChoices():
+    print("""    
+    +----------------------------+--------+
+    |        Reason              | Number |
+    +----------------------------+--------+
+    | Spam                       |      1 |
+    | Do not hurt yourself       |      2 |
+    | Drug                       |      3 |
+    | Nudity                     |      4 |
+    | Severity                   |      5 |
+    | Hate Speech                |      6 |
+    | Harassment and Bullying    |      7 |
+    | Identity Imitation         |      8 |
+    | Age-Free Child             |     11 |
+    +----------------------------+--------+
+    """)
+
+def GetInput(message, *argv):
+    print("[ ? ] ", end="")
+    print(message, end=" ")
+    for arg in argv:
+        print(arg, end=" ")
+    return input()
+
+def PrintFatalError(message, *argv):
+    print("[ X ] ", end="")
+    print(message, end=" ")
+    for arg in argv:
+        print(arg, end=" ")
+    print("")
+    pass
+
+def PrintError(message, username, *argv):
+    print("[ X ] ", end="")
+    print("[", end="")
+    print(username, end="")
+    print("] ", end="")
+    print(message, end=" ")
+    for arg in argv:
+        print(arg, end=" ")
+    print("")
+    pass
+
+def PrintStatus(message, *argv):
+    print("[ * ] ", end="")
+    print(message, end=" ")
+    for arg in argv:
+        print(arg, end=" ")
+    print("")
+    pass
+
+def PrintBanner():
+    banner = """
+_____                 ______  ______                _____               
+___(_)_______ _       ___  /_ ___  /______ ___________  /______ ________
+__  / __  __ `/       __  __ \__  / _  __ `/__  ___/_  __/_  _ \__  ___/
+_  /  _  /_/ /        _  /_/ /_  /  / /_/ / _(__  ) / /_  /  __/_  /    
+/_/   _\__, /         /_.___/ /_/   \__,_/  /____/  \__/  \___/ /_/     
+      /____/                                                            
+`````````````````````꧁༺ᵇʸ ᶜʸᵇᵉʳᵏᵃˡˡᵃⁿ༻꧂```````````````````````````
+----------------------------------------------------
+https://github.com/cyberkallan/igblaster
+    """
+    print(banner)
+    pass
+
+def LoadUsers(path):
+    ret = []
+    try:
+        with open(path, 'r') as file:
+            for line in file.readlines():
+                line = line.replace("\n", "").replace("\r","")
+                user = line.split(" ")[0]
+                password = line.split(" ")[1]
+                ret.append({
+                    "user": user,
+                    "password": password
+                })
+                pass
+            pass
+        return ret
+    except:
+        PrintFatalError("'users.txt' File not found!")
+        exit(0)
+    pass
+
+def LoadProxies(path):
+    ret = []
+    try:
+        with open(path, 'r') as file:
+            for line in file.readlines():
+                line = line.replace("\n", "").replace("\r","")
+                ip = line.split(":")[0]
+                port = line.split(":")[1]
+                ret.append({
+                    "ip": ip,
+                    "port": port
+                })
+                pass
+            pass
+        return ret
+    except:
+        PrintFatalError("'proxy.txt' File not found!")
+        exit(0)
+    pass
